@@ -1,0 +1,385 @@
+/* static/css/login.css */
+
+/* 기본 레이아웃 설정 */
+body {
+    margin: 0;
+    padding: 0;
+    font-family: 'Noto Sans KR', sans-serif;
+    background-color: #F8F9FA;
+    height: 100vh;
+    overflow: hidden; /* 전체 페이지 스크롤 방지 */
+}
+
+.login-page-wrapper {
+    position: relative;
+    height: 100vh;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+}
+
+/* --------------------------------------------------
+   1) 사이드바: fixed (뷰포트 고정)
+   -------------------------------------------------- */
+.login-sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 65px;           /* collapsed 상태 */
+    height: 100vh;
+    background-color: #fff;
+    border-right: 1px solid #e0e0e0;
+    box-shadow: 2px 0 5px rgba(0,0,0,0.02);
+    overflow: hidden;
+    z-index: 10;
+    transition: width 0.3s ease-in-out;
+}
+.login-sidebar:not(.collapsed) {
+    width: 350px;          /* expanded 상태 */
+}
+
+/* 사이드바 내부 콘텐츠 숨김/표시 */
+.login-sidebar.collapsed .sidebar-content,
+.login-sidebar.collapsed .sidebar-footer,
+.login-sidebar.collapsed .sidebar-app-name {
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s ease-in-out 0.1s,
+                visibility 0.3s ease-in-out 0.1s;
+}
+.login-sidebar:not(.collapsed) .sidebar-content,
+.login-sidebar:not(.collapsed) .sidebar-footer,
+.login-sidebar:not(.collapsed) .sidebar-app-name {
+    opacity: 1;
+    visibility: visible;
+    transition: opacity 0.3s ease-in-out,
+                visibility 0.3s ease-in-out;
+}
+
+/* 사이드바 헤더 */
+.sidebar-header {
+    width: 100%;
+    padding: 1rem 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    border-bottom: 1px solid #eee;
+    box-sizing: border-box;
+}
+.sidebar-menu-btn {
+    font-size: 1.5rem;
+    color: #5f6368;
+    background: none;
+    border: none;
+    padding: 0.5rem;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+.sidebar-menu-btn:hover {
+    background-color: #f0f3f6;
+}
+.sidebar-app-name {
+    font-size: 1.5rem;
+    font-weight: 500;
+    color: #202124;
+    white-space: nowrap;
+}
+
+/* 사이드바 콘텐츠 (로그인 폼) */
+.sidebar-content {
+    flex-grow: 1;
+    width: 350px;
+    text-align: center;
+    padding: 2rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    box-sizing: border-box;
+}
+.sidebar-title {
+    font-size: 2.2rem;
+    font-weight: 700;
+    color: #4285F4;
+    margin-bottom: 0.5rem;
+}
+.sidebar-description {
+    font-size: 1rem;
+    color: #5f6368;
+    margin-bottom: 2rem;
+}
+.login-form {
+    background-color: #fff;
+    padding: 1.5rem;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    width: 100%;
+}
+.login-form .form-label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+    color: #3c4043;
+}
+.login-form .form-control {
+    border: 1px solid #DADCE0;
+    border-radius: 8px;
+    padding: 0.75rem 1rem;
+    font-size: 1rem;
+}
+.login-form .btn-primary {
+    width: 100%;
+    padding: 0.8rem 1rem;
+    border-radius: 8px;
+    font-size: 1.1rem;
+    font-weight: 500;
+    transition: background-color 0.2s;
+}
+.login-form .btn-primary:hover {
+    background-color: #3367D6;
+    border-color: #3367D6;
+}
+.register-link {
+    font-size: 0.9rem;
+    color: #5f6368;
+}
+.register-link a {
+    color: #4285F4;
+    text-decoration: none;
+    font-weight: 500;
+}
+.register-link a:hover {
+    text-decoration: underline;
+}
+
+/* 사이드바 푸터 */
+.sidebar-footer {
+    width: 100%;
+    padding: 1rem 1.5rem;
+    border-top: 1px solid #eee;
+    box-sizing: border-box;
+}
+.sidebar-footer .btn-icon {
+    font-size: 1rem;
+    color: #5f6368;
+    background: none;
+    border: none;
+    padding: 0.5rem 0.8rem;
+    border-radius: 20px;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+.sidebar-footer .btn-icon:hover {
+    background-color: #f0f3f6;
+}
+
+/* --------------------------------------------------
+   2) 메인 콘텐츠: 전체 화면 채우기
+   -------------------------------------------------- */
+.login-main-content {
+    position: relative;
+    margin: 0;
+    padding: 0;
+    width: 100vw;
+    height: 100vh;
+    box-sizing: border-box;
+
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    transition: none !important;
+}
+
+/* --------------------------------------------------
+   3) 중앙 컨테이너: 뷰포트 정중앙에 고정 
+      / active-chat 시 위/가운데/아래 분배 
+      & transform + 간격 애니메이션
+   -------------------------------------------------- */
+.gemini-center-container {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    width: 100%;
+    max-width: min(80%, 900px);
+    padding: 2rem;
+    box-sizing: border-box;
+
+    /* 히어로 메시지와 입력창 사이 기본 간격 */
+    --gap: 2rem;
+
+    /* 간격 변수, 높이, 패딩 애니메이션 (서서히, 오버슈트 이징) */
+    transition:
+      --gap 1s ease-out,
+      height 1s ease-out,
+      padding 1s ease-out;
+}
+.gemini-center-container.active-chat {
+    justify-content: space-between;
+    height: 90vh;         /* 컨테이너 높이 확장 */
+    padding: 2rem 0;
+
+    /* active 시 간격 확대 */
+    --gap: 6rem;
+}
+
+/* Gemini 내부 스타일 */
+.gemini-main-area {
+    width: 100%;
+    margin-bottom: 2rem;
+}
+.gemini-welcome-message {
+    font-size: 4rem;
+    font-weight: 500;
+    background: linear-gradient(to right, #6A1B9A, #1A73E8);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    white-space: nowrap;
+
+    /* 간격 변수 적용 + transform 애니메이션 */
+    margin-bottom: var(--gap);
+    transform: translateY(0);
+    transition:
+      margin-bottom 1s ease-out,
+      transform 1s ease-out;
+}
+.gemini-center-container.active-chat .gemini-welcome-message {
+    transform: translateY(-20px);
+}
+
+.gemini-bottom-bar {
+    width: 100%;
+    max-width: min(70%, 700px);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding-bottom: 2rem;
+}
+.gemini-prompt-suggestions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+    width: 100%;
+    padding: 0 1rem;
+}
+.gemini-prompt-btn {
+    border-radius: 20px;
+    padding: 0.6rem 1.2rem;
+    font-size: 0.95rem;
+    border: 1px solid #dadce0;
+    background-color: #fff;
+    color: #3c4043;
+    cursor: pointer;
+    transition: background-color 0.2s, border-color 0.2s;
+    white-space: nowrap;
+}
+.gemini-prompt-btn:hover {
+    background-color: #f0f3f6;
+    border-color: #c7cace;
+}
+.gemini-input-group {
+    width: 100%;
+    max-width: 600px;
+    box-shadow: 0 1px 6px rgba(0,0,0,0.1);
+    border-radius: 25px;
+    background-color: #fff;
+    padding: 0.5rem 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+
+    /* 입력창과 히어로 메시지 사이 간격 + transform 애니메이션 */
+    margin-top: var(--gap);
+    transform: translateY(0);
+    transition:
+      margin-top 1s ease-out,
+      transform 1s ease-out;
+}
+.gemini-center-container.active-chat .gemini-input-group {
+    transform: translateY(20px);
+}
+.gemini-input-group .form-control {
+    border: none;
+    box-shadow: none;
+    padding: 0.5rem;
+    flex-grow: 1;
+    background-color: transparent;
+}
+.gemini-input-group .form-control:focus {
+    outline: none;
+}
+.gemini-input-group .gemini-input-btn {
+    border: none;
+    background-color: transparent;
+    font-size: 1.2rem;
+    padding: 0.5rem;
+    line-height: 1;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+.gemini-input-group .gemini-input-btn:hover {
+    background-color: #e9ecef;
+}
+.gemini-input-group .gemini-send-btn {
+    background-color: #4285F4;
+    color: #fff;
+    border-radius: 50%;
+    font-size: 1.2rem;
+    padding: 0.5rem;
+    line-height: 1;
+    border: none;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+.gemini-input-group .gemini-send-btn:hover {
+    background-color: #3367D6;
+}
+
+/* --------------------------------------------------
+   4) 채팅창 말풍선 & 입력창
+   -------------------------------------------------- */
+/* 기본은 숨김 */
+.chat-window {
+    display: none;
+}
+/* active-chat 시 보이기 */
+.gemini-center-container.active-chat .chat-window {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    max-height: 70vh;      /* 늘린 채팅창 높이 */
+    overflow-y: auto;
+    width: 100%;
+    margin: 1rem 0;
+}
+/* 말풍선 공통 */
+.chat-bubble {
+    padding: 0.75rem 1rem;
+    border-radius: 16px;
+    line-height: 1.4;
+    word-break: break-word;
+    max-width: 70%;
+}
+/* AI 말풍선 (좌측) */
+.chat-bubble.ai {
+    background-color: #f1f0f0;
+    align-self: flex-start;
+}
+/* 사용자 말풍선 (우측) */
+.chat-bubble.user {
+    background-color: #e1ffc7;
+    align-self: flex-end;
+}

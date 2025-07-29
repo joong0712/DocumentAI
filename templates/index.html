@@ -1,0 +1,768 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ChatPDF 스타일 요약 및 QA</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.0/socket.io.min.js"></script>
+</head>
+
+<body>
+    <div class="container-fluid h-100">
+        <div class="row h-100" style="min-height: 0;">
+            <div class="col-md-2 sidebar">
+                <form id="uploadForm" enctype="multipart/form-data" style="display: none;">
+                    <input type="file" name="pdf_file" id="pdfInput" accept=".pdf">
+                    <input type="hidden" name="summary_type" value="simple">
+                </form>
+                <div class="btn-group" role="group">
+                    <button class="btn btn-outline-primary btn-sm" id="addDocumentBtn"><i
+                            class="bi bi-file-earmark-plus"></i> 문서 추가</button>
+                    <button class="btn btn-outline-secondary btn-sm"><i class="bi bi-folder-plus"></i> 폴더 생성</button>
+                </div>
+                <h6><i class="bi bi-folder-fill me-2"></i>문서 이력</h6>
+                <ul class="list-group list-group-flush" id="document-history-list">
+                    {% for item in history %}
+                    <li class="list-group-item small text-truncate">{{ item }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+
+            <div class="col-md-5 pdf-viewer">
+                {% if filepath %}
+                <iframe id="pdf-frame"
+                    src="/static/pdfjs/web/viewer.html?file=/static/{{ filepath | replace('\\', '/') }}#page=1"></iframe>
+                {% else %}
+                <div class="empty-upload text-center w-100">
+                    <i class="bi bi-file-earmark-arrow-up display-1 text-secondary"></i>
+                    <h5 class="mt-3 text-muted">PDF 문서를 업로드하세요</h5>
+                    <p class="small text-secondary">문서를 업로드하면 요약과 Q&A 기능을 바로 사용할 수 있습니다. <br>
+                        여기에 PDF 미리보기가 표시됩니다.
+                    </p>
+                </div>
+
+                {% endif %}
+            </div>
+
+            <div class="col-md-5 chat-box d-flex flex-column" style="height: 100vh; min-height: 0;">
+                {# 🌟 채팅 로딩 오버레이 추가 #}
+                <div id="chat-loading-overlay">
+                    <div class="loading-spinner"></div>
+                    <span>답변 생성 중...</span>
+                </div>
+
+                {# 🌟🌟🌟 간단 요약 섹션 전체 제거 (id="summary-box" div 삭제) 🌟🌟🌟 #}
+
+                <div class="chat-history" style="flex:1 1 auto; min-height: 0; overflow-y: auto;">
+                    <div id="summary-container" class="chat-bubble d-flex align-items-start mb-3"
+                        style="display: none;">
+                        <div id="summary-content"
+                            class="message bg-white border-start border-primary border-4 shadow-sm">
+                            <!-- preview_summary 또는 full_summary 가 이곳에 채워집니다 -->
+                        </div>
+                    </div>
+                    {# 🌟🌟🌟 문서 요약 로딩 스피너를 위한 임시 메시지 #}
+                    <div id="pdf-processing-message" style="display: none;">
+                        <div
+                            class="message bg-white border-start border-primary border-4 shadow-sm d-flex align-items-center justify-content-center">
+                            <span class="loading-spinner"></span>
+                            <span>문서 요약 중...</span>
+                        </div>
+                    </div>
+                    {% if not chat_history %}
+                    <!-- 채팅이 비어있을 때 표시 -->
+                    <div class="chat-placeholder text-center text-muted" id="chat-placeholder">
+                        <i class="bi bi-chat-square-dots display-1"></i>
+                        <h5 class="mt-3">문서에 대해 질문해보세요</h5>
+                        <p class="small">AI가 문서를 분석하고 답변을 제공합니다.</p>
+                    </div>
+                    {% else %}
+                    {% for role, message in chat_history %}
+                    {% if role == '시스템' %}
+                    <div class="chat-bubble ai">
+                        <img src="{{ url_for('static', filename='img/ai-avatar.png') }}" alt="AI 프로필"
+                            class="ai-avatar me-2">
+                        <div class="message bg-white border-start border-primary border-4 shadow-sm">{{message | nl2br |
+                            safe}}</div>
+                    </div>
+                    {% elif role == '추천질문' %}
+                    <div class="chat-bubble ai ai-recommend">
+                        <div class="message bg-white border-start border-primary border-4 shadow-sm">
+                            <div class="fw-bold mb-2">📌 추천 질문:</div>
+                            <div class="d-flex flex-wrap gap-2">
+                                {% for question in message %}
+                                <button type="button"
+                                    class="btn btn-outline-secondary btn-sm recommended-question-btn mb-1"
+                                    data-question="{{ question.text }}">
+                                    {{ question.text }}
+                                </button>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                    {% elif role == 'user' %}
+                    <div class="chat-bubble user">
+                        <div class="message">{{message | nl2br}}</div>
+                    </div>
+                    {% elif role == 'ai' %}
+                    <div class="chat-bubble ai d-flex align-items-start">
+                        <img src="{{ url_for('static', filename='img/ai-avatar.png') }}" alt="AI 프로필"
+                            class="ai-avatar me-2">
+                        <div class="message bg-white border-start border-primary border-4 shadow-sm">
+                            {{ message.text | nl2br }}
+                            {% if message.page %}
+                            <span class="badge bg-primary-subtle text-primary-emphasis ms-2 p-0 mb-1 page-badge"
+                                data-page="{{ message.page }}" style="cursor: pointer;" data-bs-toggle="tooltip"
+                                title="클릭시 해당 PDF 페이지로 이동합니다.">
+                                p.{{ message.page }}
+                            </span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endif %}
+                    {% endfor %}
+                    {% endif %}
+                </div>
+                <div class="chat-input" style="flex-shrink: 0;">
+                    <form id="mainChatForm">
+                        <input type="hidden" name="pdf_path" value="{{ filepath }}" id="currentPdfPathInput">
+                        <div class="input-group">
+                            <input type="text" name="user_question" class="form-control" placeholder="문서에 대해 질문하세요"
+                                required>
+                            <button type="submit" class="btn btn-primary"><i class="bi bi-send-fill"></i></button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- 1) 프로필 토글 버튼 (우측 상단 고정) -->
+    <button id="profileToggle" type="button" class="btn p-0 position-fixed" style="top:1rem; right:1rem; z-index:1050;"
+        aria-label="프로필 열기">
+        <img src="{{ url_for('static', filename='profile_images/' ~ current_user.profile_image) }}" alt="프로필" width="40"
+            height="40" class="rounded-circle border border-2">
+    </button>
+
+    <!-- 2) Profile Toast -->
+    <div id="profileToast" class="toast align-items-start text-dark bg-white border-0" role="alert"
+        aria-live="assertive" aria-atomic="true" data-bs-autohide="false"
+        style="position: fixed; top: 5rem; right: 1rem; min-width: 220px;">
+        <div class="toast-header border-0">
+            <strong class="me-auto">내 프로필</strong>
+            <button type="button" class="btn-close ms-2 mb-1" data-bs-dismiss="toast" aria-label="닫기"></button>
+        </div>
+        <div class="toast-body text-center">
+            <img src="{{ url_for('static', filename='profile_images/' ~ current_user.profile_image) }}" alt="프로필"
+                width="64" height="64" class="rounded-circle mb-2">
+            <p class="mb-2">{{ current_user.username }}</p>
+            <a href="{{ url_for('logout') }}"
+                class="btn btn-sm btn-primary w-100 d-flex align-items-center justify-content-center">
+                <i class="bi bi-box-arrow-right me-1"></i> 로그아웃
+            </a>
+        </div>
+    </div>
+    <script>
+        <!-- 3) Bootstrap JS 초기화 -->
+        document.addEventListener('DOMContentLoaded', function () {
+            const toastEl = document.getElementById('profileToast');
+            const profileToast = new bootstrap.Toast(toastEl);
+
+            document.getElementById('profileToggle')
+                .addEventListener('click', () => {
+                    if (toastEl.classList.contains('show')) {
+                        profileToast.hide();
+                    } else {
+                        profileToast.show();
+                    }
+                });
+        });
+
+        // pdf-frame 이라는 id의 <iframe> 을 찾아, #page=N 파라미터를 교체합니다
+        function goToPage(pageNum) {
+            const iframe = document.querySelector('.pdf-viewer iframe');
+            // 기존 src 에서 해시(#…) 이전까지 잘라내고
+            if (!iframe) return;
+            const base = iframe.src.split('#')[0];
+            console.log("iframe src before:", iframe.src, "| base:", base, "| target page:", pageNum);
+            // #page=… 를 붙여 다시 로드
+            iframe.src = `${base}#page=${pageNum}`;
+        }
+
+        // 🌟🌟🌟 Socket.IO 클라이언트 초기화 🌟🌟🌟
+        const socket = io();
+        let currentAiMessageDiv = null; // 스트리밍 중인 AI 답변을 담을 div
+        const chatBox = document.querySelector('.chat-box');
+        const chatHistory = document.querySelector('.chat-history');
+        const pdfProcessingMessage = document.getElementById('pdf-processing-message'); // 🌟 새로운 요소 참조
+
+        function initializeChatState() {
+            // 1. 채팅 기록을 담고 있는 부모 컨테이너와 기존 메시지를 찾습니다.
+            const chatContainer = document.querySelector('.chat-history'); // 실제 채팅창 영역
+            if (!chatContainer) return; // 채팅창이 없으면 종료
+
+            const existingBubbles = chatContainer.querySelectorAll('.chat-bubble');
+            console.log(`[상태 초기화] ${existingBubbles.length}개의 기존 메시지를 발견했습니다.`);
+
+            // 2. 🌟 핵심 로직: 기존 메시지가 1개라도 있으면 '채팅 모드'로 전환합니다.
+            // (환영 메시지도 .chat-bubble일 수 있으므로 1개 초과일 때를 조건으로 할 수 있습니다.
+            // 상황에 맞게 existingBubbles.length > 0 또는 > 1 로 조정하세요.)
+            if (existingBubbles.length > 0) {
+                // UI를 '채팅 모드'로 만드는 상위 컨테이너를 찾습니다.
+                // CSS를 기반으로 추정할 때, 이 컨테이너일 확률이 높습니다.
+                // 실제 클래스 이름이 다르면 이 부분을 수정해야 합니다.
+                const mainContainer = document.querySelector('.gemini-center-container');
+                if (mainContainer) {
+                    mainContainer.classList.add('active-chat');
+                    console.log("[상태 초기화] 채팅 기록이 존재하여 'active-chat' 모드로 전환합니다.");
+                }
+
+                // 3. 채팅창을 맨 아래로 스크롤합니다.
+                // setTimeout으로 약간의 지연을 주어 렌더링 후 스크롤이 정확하게 동작하도록 합니다.
+                setTimeout(() => {
+                    chatContainer.scrollTop = chatContainer.scrollHeight;
+                    console.log("[상태 초기화] 채팅창을 맨 아래로 스크롤했습니다.");
+                }, 0); // 0ms 지연으로도 충분합니다.
+            }
+        }
+
+        // 🌟🌟🌟 채팅 메시지를 동적으로 추가하고 스크롤하는 헬퍼 함수 🌟🌟🌟
+        function appendChatMessage(role, message, isStreaming = false) {
+            console.log("[appendChatMessage] role:", role, "| message:", message);
+            console.log("chatHistory DOM:", chatHistory);
+            hideTypingIndicator();
+
+            // AI 답변 스트리밍: 기존 말풍선에 이어붙이기
+            if (role === 'ai' && isStreaming) {
+                if (!currentAiMessageDiv) {
+                    // 스트리밍 첫 청크라면 새 div 생성
+                    const newMessageDiv = document.createElement('div');
+                    newMessageDiv.className = `chat-bubble ai`;
+                    newMessageDiv.innerHTML = `<div class="message bg-white border-start border-primary border-4 shadow-sm">
+            ${message.replace(/\r?\n/g, '<br>')}</div>`;
+                    chatHistory.appendChild(newMessageDiv);
+                    currentAiMessageDiv = newMessageDiv;
+                } else {
+                    // 두 번째 청크부터는 기존 div에 이어붙임
+                    currentAiMessageDiv.querySelector('.message').innerHTML += message.replace(/\r?\n/g, '<br>');
+                }
+            } else {
+                // 일반 메시지/스트리밍 종료 후 새로운 메시지: 새 div 생성
+                const newMessageDiv = document.createElement('div');
+                newMessageDiv.className = `chat-bubble ${role}`;
+
+                let messageClass = '';
+                if (role === 'system') {
+                    messageClass = 'bg-white border-start border-primary border-4 shadow-sm';
+                } else if (role === 'ai') {
+                    messageClass = 'bg-white border-start border-primary border-4 shadow-sm';
+                }
+
+                newMessageDiv.innerHTML = `<div class="message ${messageClass}">${message.replace(/\r?\n/g, '<br>')}</div>`;
+                chatHistory.appendChild(newMessageDiv);
+                if (role === 'ai') {
+                    currentAiMessageDiv = null; // 일반 메시지는 스트리밍 div와 분리
+                }
+            }
+            chatHistory.scrollTop = chatHistory.scrollHeight;
+        }
+
+        function showChatLoadingOverlay() {
+            // 제거된 기능
+        }
+
+        function hideChatLoadingOverlay() {
+            // 제거된 기능
+        }
+
+        // 🌟🌟🌟 타이핑 인디케이터 함수 🌟🌟🌟
+        let typingIndicatorElement;
+
+        function getOrCreateTypingIndicator() {
+            if (!typingIndicatorElement) {
+                typingIndicatorElement = document.createElement('div');
+                typingIndicatorElement.className = 'chat-bubble typing-indicator';
+
+                // 🌟 AI avatar 추가
+                const avatarImg = document.createElement('img');
+                avatarImg.src = "/static/img/ai-avatar.png"; // 경로 맞게!
+                avatarImg.className = "ai-avatar-img";
+                avatarImg.style.width = "42px";
+                avatarImg.style.height = "42px";
+                avatarImg.style.borderRadius = "50%";
+                avatarImg.style.marginRight = "14px";
+
+                // 메시지 부분 (점 세 개)
+                const msgDiv = document.createElement('div');
+                msgDiv.className = "message bg-white border-start border-primary border-4 shadow-sm d-flex align-items-center";
+                msgDiv.innerHTML = `
+        <span>AI가 입력 중</span>
+        <span class="dot"></span>
+        <span class="dot"></span>
+        <span class="dot"></span>
+        `;
+
+                typingIndicatorElement.appendChild(avatarImg);
+                typingIndicatorElement.appendChild(msgDiv);
+                typingIndicatorElement.style.display = 'none';
+            }
+            return typingIndicatorElement;
+        }
+        function showTypingIndicator() {
+            // 1. 기존 인디케이터 모두 제거 (중복 방지)
+            const prev = document.querySelector('.typing-indicator-bubble');
+            if (prev && prev.parentNode) prev.parentNode.removeChild(prev);
+
+            // 2. 새 인디케이터 생성
+            const indicator = getOrCreateTypingIndicator();
+            indicator.classList.add('typing-indicator-bubble');
+            indicator.style.display = 'flex';
+
+            // 3. 채팅 맨 아래에 붙이기
+            chatHistory.appendChild(indicator);
+            chatHistory.scrollTop = chatHistory.scrollHeight;
+        }
+
+
+        function hideTypingIndicator() {
+            console.log("[hideTypingIndicator] 호출됨");
+            // 기존 getOrCreateTypingIndicator() 대신 아래처럼 명확하게 찾기
+            const indicator = document.querySelector('.typing-indicator-bubble');
+            if (indicator && indicator.parentNode) {
+                indicator.parentNode.removeChild(indicator); // DOM에서 완전히 제거!
+                console.log("[UI Update] 타이핑 인디케이터 삭제.");
+            }
+        }
+
+
+        // 🌟🌟🌟 추천 질문 버튼에 이벤트 리스너를 동적으로 연결하는 함수 (이벤트 위임 적용) 🌟🌟🌟
+        function attachRecommendedQuestionListeners() {
+            if (!chatBox) {
+                console.error("[이벤트 연결 오류] chat-box 요소를 찾을 수 없습니다.");
+                return;
+            }
+
+            chatBox.addEventListener('click', function (event) {
+                const clickedButton = event.target.closest('.recommended-question-btn');
+
+                if (clickedButton) {
+                    event.preventDefault();
+
+                    const questionText = clickedButton.dataset.question;
+
+                    appendChatMessage('user', questionText);
+                    showTypingIndicator();
+
+                    const currentPdfPathInput = document.getElementById('currentPdfPathInput');
+                    const currentPdfPath = currentPdfPathInput ? currentPdfPathInput.value : '';
+
+                    console.log(`[추천 질문 클릭] 질문: "${questionText}"`);
+                    console.log(`[추천 질문 클릭] 현재 PDF 경로: "${currentPdfPath}"`);
+
+                    socket.emit('send_question', {
+                        user_question: questionText,
+                        pdf_path: currentPdfPath
+                    });
+                    console.log("[추천 질문 클릭] Socket.IO 'send_question' 이벤트 전송 완료.");
+                }
+            });
+            console.log("[이벤트 연결] 추천 질문 버튼에 이벤트 위임 리스너가 연결되었습니다.");
+        }
+        window.addEventListener('DOMContentLoaded', function () {
+            console.log("--- DOMContentLoaded 이벤트 발생 ---");
+
+            initializeChatState();
+
+            hideChatLoadingOverlay();
+            hideTypingIndicator();
+
+            if (chatHistory) {
+                setTimeout(() => {
+                    chatHistory.scrollTop = chatHistory.scrollHeight;
+                    console.log("채팅 기록 스크롤 하단으로 이동.");
+                }, 0);
+            }
+
+            const storedQuestions = localStorage.getItem('pdfRecommendedQuestions');
+
+            console.log("[LocalStorage] 불러온 질문 (pdfRecommendedQuestions):", storedQuestions);
+
+            attachRecommendedQuestionListeners();
+        });
+
+        document.addEventListener("DOMContentLoaded", function () {
+            const addDocumentBtn = document.getElementById("addDocumentBtn");
+            if (addDocumentBtn) {
+                addDocumentBtn.addEventListener("click", function () {
+                    document.getElementById("pdfInput").click();
+                    console.log("['문서 추가' 버튼] 클릭됨.");
+                });
+            } else {
+                console.error("오류: '문서 추가' 버튼 (#addDocumentBtn)을 찾을 수 없습니다.");
+            }
+
+            $(document).ready(function () {
+                // 1. Socket.IO 서버에 연결합니다.
+                var socket = io();
+
+                // 2. 서버와 성공적으로 연결되었을 때 콘솔에 로그를 남깁니다.
+                socket.on('connect', function () {
+                    console.log('[Socket.IO] ✅ 서버에 성공적으로 연결되었습니다.');
+                });
+
+                // ----------------------------------------------------
+                // 🌟 (핵심) 디버깅을 위한 '모든 이벤트 감지' 리스너 🌟
+                // ----------------------------------------------------
+                // 서버에서 어떤 이름으로든 이벤트를 보내면, 이 부분이 감지해서 콘솔에 보여줍니다.
+                // 'summary_updated' 이벤트가 정말 오고 있는지 확실히 알 수 있습니다.
+                socket.onAny((eventName, ...args) => {
+                    console.log(`[Socket.IO 이벤트 수신 📡] 이벤트명: "${eventName}"`, args);
+                });
+
+                // ----------------------------------------------------
+                // 🌟 (핵심) '요약 완료' 신호 처리 부분 (안정성 강화) 🌟
+                // ----------------------------------------------------
+                socket.on('summary_updated', function (data) {
+                    console.log('✅ "summary_updated" 신호를 받았습니다! 화면 업데이트를 시작합니다.', data);
+                    window.location.reload();
+
+                    try {
+                        // 1) 로딩 인디케이터가 있으면 숨기기 (필요하다면)
+                        const loading = document.getElementById('loading-indicator');
+                        if (loading) loading.style.display = 'none';
+
+                        // 2) 요약문 영역 업데이트
+                        if (data && data.summary) {
+                            const summaryContainer = document.getElementById('summary-container');
+                            const summaryContent = document.getElementById('summary-content');
+                            summaryContent.innerHTML = data.summary.replace(/\n/g, '<br>');
+                            summaryContainer.style.display = 'block';
+                        }
+
+                        // 3) (선택) 추천 질문 목록 업데이트
+                        if (data && Array.isArray(data.questions)) {
+                            const chatHistory = document.querySelector('.chat-history');
+                            // 기존 추천 질문 bubble 삭제 (있다면)
+                            const old = chatHistory.querySelector('.chat-bubble.ai.recommendations');
+                            if (old) old.remove();
+
+                            // 새로운 추천 질문 bubble 생성
+                            const bubble = document.createElement('div');
+                            bubble.className = 'chat-bubble ai recommendations';
+                            let html = `<div class="message bg-white border-start border-primary border-4 shadow-sm">
+            <div class="fw-bold mb-2">📌 추천 질문:</div>
+            <div class="d-flex flex-wrap gap-2">`;
+                            data.questions.forEach(q => {
+                                html += `<button type="button" class="btn btn-outline-secondary btn-sm recommended-question-btn"
+                    data-question="${q.text}">
+                    ${q.text}
+                </button>`;
+                            });
+                            html += ` </div>
+        </div>`;
+                            bubble.innerHTML = html;
+                            chatHistory.appendChild(bubble);
+                            chatHistory.scrollTop = chatHistory.scrollHeight;
+                        }
+
+                        // 4) 시스템 메시지 추가
+                        if (data && data.message) {
+                            appendChatMessage('system', data.message);
+                        }
+
+                    } catch (e) {
+                        console.error('🚨 summary_updated 처리 중 오류:', e);
+                    }
+                });
+                // 4. 서버에서 '분석 실패' 신호를 보냈을 때 처리하는 부분
+                socket.on('update_failed', function (data) {
+                    console.error('🚨 서버에서 분석 실패 신호를 받았습니다:', data);
+                    if (data && data.message) {
+                        addMessageToChat('시스템', '오류: ' + data.message);
+                    }
+                    $('#loading-indicator').hide();
+                });
+
+            });
+
+
+            document.getElementById("pdfInput").addEventListener("change", function () {
+                console.log("[PDF 업로드] PDF 파일 선택됨. 업로드 시작.");
+                showPdfProcessing();
+                const form = document.getElementById("uploadForm");
+                const formData = new FormData(form);
+
+                // 🌟🌟🌟 문서 요약 로딩 스피너 메시지 표시 🌟🌟🌟
+                if (pdfProcessingMessage) {
+                    pdfProcessingMessage.style.display = 'flex'; // 보이게 설정
+                    chatHistory.scrollTop = chatHistory.scrollHeight; // 스크롤 하단으로
+                    console.log("[PDF 업로드] '문서 요약 중...' 메시지 표시.");
+                }
+
+
+                fetch("/upload_ajax", {
+                    method: "POST",
+                    body: formData
+                })
+                    .then(res => {
+                        console.log("[Fetch 응답] Fetch 응답 받음:", res);
+                        if (!res.ok) {
+                            throw new Error(`HTTP error! status: ${res.status}`);
+                        }
+                        return res.json();
+                    })
+                    .then(data => {
+                        console.log("[Fetch 데이터] Fetch 데이터 수신:", data);
+                        if (data.status === "ok" || data.status === "processing" || data.status === "new" || data.status === "same") {
+                            localStorage.setItem('pdfRecommendedQuestions', JSON.stringify(data.question));
+                            console.log("[LocalStorage] 질문 저장 완료.");
+
+                            const pdfViewer = document.querySelector(".pdf-viewer");
+                            const newIfram = document.createElement("iframe");
+                            newIfram.id = "pdf-frame";
+                            // PDF URL에 #navpanes=0 매개변수 추가
+                            newIfram.src = `/static/${data.filepath}#navpanes=0`;
+
+                            pdfViewer.innerHTML = '';
+                            pdfViewer.appendChild(newIfram);
+                            console.log("[PDF Viewer] PDF 뷰어 업데이트 완료.");
+
+                            const mainPdfPathInput = document.getElementById('currentPdfPathInput');
+                            if (mainPdfPathInput) {
+                                mainPdfPathInput.value = data.filepath;
+                                console.log(`[PDF 업로드] 메인 폼의 pdf_path 업데이트됨: ${mainPdfPathInput.value}`);
+                            }
+
+                            const historyList = document.getElementById('document-history-list');
+                            if (historyList && data.filename) {
+                                const newListItem = document.createElement('li');
+                                newListItem.className = 'list-group-item small text-truncate';
+                                newListItem.textContent = data.filename;
+                                historyList.appendChild(newListItem);
+                                console.log(`[문서 이력] 문서 이력에 '${data.filename}' 추가됨.`);
+                            }
+
+                            // 🌟🌟🌟 문서 요약 로딩 스피너 메시지 숨기기 🌟🌟🌟
+                            if (pdfProcessingMessage) {
+                                pdfProcessingMessage.style.display = 'none'; // 숨기기
+                                console.log("[PDF 업로드] '문서 요약 중...' 메시지 숨김.");
+                            }
+
+
+
+                            if (data.status === "new") {
+                                // 새 문서면 안내문 전체 + 요약 둘 다 말풍선!
+                                if (data.message) {
+                                    appendChatMessage('system', data.message); // 안내 전체!
+                                }
+                                if (data.summary) {
+                                    appendChatMessage('system', data.summary); // 요약 별도!
+                                }
+                            } else {
+                                // 중복 업로드면 안내문만
+                                if (data.message) {
+                                    appendChatMessage('system', data.message);
+                                }
+                            }
+                        } else {
+                            console.error("[Fetch 오류] 서버 응답 상태가 'ok'/ 'processing' / 'new' / 'same'이 아님:", data.message);
+                            localStorage.removeItem('pdfRecommendedQuestions');
+
+                            // 🌟🌟🌟 오류 발생 시 로딩 스피너 메시지 숨기기 🌟🌟🌟
+                            if (pdfProcessingMessage) {
+                                pdfProcessingMessage.style.display = 'none';
+                                console.log("[PDF 업로드] 오류 발생으로 '문서 요약 중...' 메시지 숨김.");
+                            }
+                        }
+                        hidePdfProcessing();
+                    })
+                    .catch(error => {
+                        console.error("[Fetch 예외] 요약 중 오류 발생:", error);
+                        localStorage.removeItem('pdfRecommendedQuestions');
+
+                        // 🌟🌟🌟 예외 발생 시 로딩 스피너 메시지 숨기기 🌟🌟🌟
+                        if (pdfProcessingMessage) {
+                            pdfProcessingMessage.style.display = 'none';
+                            console.log("[PDF 업로드] 예외 발생으로 '문서 요약 중...' 메시지 숨김.");
+                        }
+                        hidePdfProcessing();
+                    });
+            });
+
+            document.getElementById('mainChatForm').addEventListener('submit', function (event) {
+                event.preventDefault();
+                console.log("[mainChatForm] 폼 제출 이벤트 발생.");
+
+                const userQuestionInput = this.querySelector('input[name="user_question"]');
+                const questionText = userQuestionInput.value;
+
+                if (questionText.trim() === "") {
+                    console.log("[폼 제출] 빈 질문은 전송하지 않습니다.");
+                    return;
+                }
+
+                appendChatMessage('user', questionText);
+                userQuestionInput.value = '';
+
+                showTypingIndicator();
+
+                const currentPdfPathInput = document.getElementById('currentPdfPathInput');
+                const currentPdfPath = currentPdfPathInput ? currentPdfPathInput.value : '';
+                console.log(`[폼 제출] 현재 PDF 경로: "${currentPdfPath}"`);
+
+                socket.emit('send_question', {
+                    user_question: questionText,
+                    pdf_path: currentPdfPath
+                });
+                console.log("[폼 제출] Socket.IO 'send_question' 이벤트 전송 완료.");
+            });
+
+            let aiTypingDiv = null;
+            let aiTypingFullText = "";
+
+            // AI 답변 청크 수신 (스트리밍)
+            socket.on('ai_response_chunk', function (data) {
+                console.log("[Socket.IO] 청크 수신:", data.chunk);
+                // 1. 답변 청크가 오면 무조건 입력중 인디케이터는 없앰!
+                hideTypingIndicator();
+
+                if (!aiTypingDiv) {
+                    // AI 말풍선(div) 생성
+                    const newBubble = document.createElement('div');
+                    newBubble.className = 'chat-bubble ai d-flex align-items-start'; // flex 정렬
+
+                    // 🌟 AI 프로필 이미지
+                    const avatarImg = document.createElement('img');
+                    avatarImg.src = data.avatar || "/static/img/ai-avatar.png"; // 반드시 경로 확인!
+                    avatarImg.className = "ai-avatar-img";
+                    avatarImg.style.width = "42px";
+                    avatarImg.style.height = "42px";
+                    avatarImg.style.borderRadius = "50%";
+                    avatarImg.style.marginRight = "14px";
+
+                    // 메시지 div
+                    const msgDiv = document.createElement('div');
+                    msgDiv.className = "message bg-white border-start border-primary border-4 shadow-sm";
+
+                    newBubble.appendChild(avatarImg);
+                    newBubble.appendChild(msgDiv);
+                    document.querySelector('.chat-history').appendChild(newBubble);
+
+                    aiTypingDiv = msgDiv;
+                    aiTypingFullText = ""; // 초기화
+                }
+
+                aiTypingFullText += data.chunk;
+                animateTyping(aiTypingFullText, aiTypingDiv);
+            });
+
+
+            // 스트리밍 종료시 페이지 뱃지 붙이기
+            socket.on('ai_response_end', function (data) {
+                hideTypingIndicator();
+                const finalText = data.full_text || aiTypingFullText;
+
+                if (data.page != null && aiTypingDiv) {
+                    animateTyping(
+                        finalText,
+                        aiTypingDiv,
+                        aiTypingDiv.textContent.length,
+                        function () {
+                            const badge = document.createElement('span');
+                            badge.className = 'badge bg-primary-subtle text-primary-emphasis ms-2 p-0 page-badge';
+                            badge.setAttribute('data-page', data.page);
+                            badge.textContent = `p.${data.page}`;
+                            badge.style.cursor = 'pointer';
+                            aiTypingDiv.appendChild(badge);
+                            aiTypingDiv = null;
+                            aiTypingFullText = "";
+                        }
+                    );
+                } else {
+                    aiTypingDiv = null;
+                    aiTypingFullText = "";
+                }
+            });
+
+            let typingTimer = null;
+
+            function animateTyping(text, targetDiv = null, idx = 0, onComplete = null) {
+                if (!targetDiv) {
+                    let bubble = document.querySelector('.chat-bubble.ai:last-child .message');
+                    if (!bubble) {
+                        bubble = document.createElement('div');
+                        bubble.className = "message bg-white border-start border-primary border-4 shadow-sm";
+                        document.querySelector('.chat-history').appendChild(bubble);
+                    }
+                    targetDiv = bubble;
+                }
+                if (idx <= text.length) {
+                    targetDiv.innerHTML = text.slice(0, idx).replace(/\n/g, '<br>');
+                    chatHistory.scrollTop = chatHistory.scrollHeight; typingTimer = setTimeout(() => animateTyping(text, targetDiv,
+                        idx + 1, onComplete), 12);
+                } else {
+                    typingTimer = null;
+                    if (onComplete) onComplete();
+                }
+            }
+
+            document.addEventListener('click', function (e) {
+                const badge = e.target.closest('.page-badge');
+                if (badge && badge.dataset.page) {
+                    console.log('badge clicked:', badge.dataset.page);
+                    goToPage(badge.dataset.page);
+                }
+            });
+
+            // 모든 .page-badge에 대해 Bootstrap tooltip 적용
+            function activatePageBadgeTooltips() {
+                // Bootstrap Tooltip 전체 활성화
+                var tooltipTriggerList = [].slice.call(document.querySelectorAll('.page-badge[data-bs-toggle="tooltip"]'));
+                tooltipTriggerList.forEach(function (tooltipTriggerEl) {
+                    // 이미 초기화된 경우도 안전하게 처리
+                    if (!bootstrap.Tooltip.getInstance(tooltipTriggerEl)) {
+                        new bootstrap.Tooltip(tooltipTriggerEl);
+                    }
+                });
+            }
+
+            // 문서 로딩 때 실행
+            document.addEventListener('DOMContentLoaded', activatePageBadgeTooltips);
+            // (만약 JS로 채팅 메시지 추가하는 부분이 있으면, append 이후에도 호출!)
+
+            function showPdfProcessing() {
+                document.getElementById('pdf-processing-message').style.display = 'block';
+                var chatPlaceholder = document.getElementById('chat-placeholder');
+                if (chatPlaceholder) chatPlaceholder.style.display = 'none';
+                console.log('showPdfProcessing 실행!');
+            }
+            function hidePdfProcessing() {
+                document.getElementById('pdf-processing-message').style.display = 'none';
+                var chatPlaceholder = document.getElementById('chat-placeholder');
+                if (chatPlaceholder) chatPlaceholder.style.display = 'block';
+                console.log('hidePdfProcessing 실행!');
+            }
+
+
+            socket.on('connect', function () {
+                console.log('[Socket.IO] 서버에 연결되었습니다.');
+            });
+
+            socket.on('disconnect', function () {
+                console.log('[Socket.IO] 서버와 연결이 끊어졌습니다.');
+            });
+
+            socket.on('connect_error', (error) => {
+                console.error('[Socket.IO] 연결 오류:', error);
+            });
+
+        });
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+
+</html>
