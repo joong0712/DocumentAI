@@ -27,10 +27,24 @@ AI가 문서를 읽고 **주요 내용 요약**과 함께,
 
 ## 🛠️ Tech Stack (기술 스택)
 
-- **Python 3.11 / Flask** : API 서버, 백엔드 전체 구조
-- **LangChain, OpenAI GPT** : AI 문서 요약 및 Q&A
-- **MongoDB, pymongo** : 사용자/문서/채팅 데이터 관리
-- **FAISS** : 문서 임베딩 및 벡터 검색
-- **HTML, Bootstrap, JS/jQuery** : 반응형 UI, 클라이언트 인터페이스
-- **Socket.IO (Flask-SocketIO)** : 실시간 응답 처리
-- **Docker, Gunicorn** : 배포/운영 환경(선택)
+### 🤖 AI/언어모델 (LLM)
+- **OpenAI GPT-4o-mini** : 문서 요약 및 질의응답에 사용되는 대형 언어 모델(LLM)
+- **LangChain** : LLM 파이프라인 설계 및 프롬프트 관리, RAG(검색 증강 생성) 구조 구현
+
+### 🔍 검색/임베딩 (RAG)
+- **FAISS** : 문서 임베딩 벡터 저장 및 고속 검색 (유사도 기반 RAG)
+- **LangChain Retriever** : 문서 내 유관 문장 추출(Retrieval), LLM과 결합하여 RAG 파이프라인 구현
+
+### 💻 백엔드
+- **Python 3.11, Flask** : API 서버, 웹 애플리케이션 백엔드
+- **MongoDB, pymongo** : 사용자, 문서, 채팅 데이터 관리
+
+### 🌐 프론트엔드
+- **HTML5, CSS3, Bootstrap 5** : 반응형 UI
+- **JavaScript, jQuery** : AJAX, 인터랙션
+- **Socket.IO (flask-socketio)** : 실시간 채팅/응답 스트리밍
+
+### ⚙️ 기타/배포
+- **Gunicorn** : 운영/배포용 WSGI 서버
+- **Docker** : 개발/운영 환경 컨테이너화(선택)
+- **Python-dotenv** : 환경변수 관리
