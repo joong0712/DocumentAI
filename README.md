@@ -48,3 +48,6 @@ AI가 문서를 읽고 **주요 내용 요약**과 함께,
 - **Gunicorn** : 운영/배포용 WSGI 서버
 - **Docker** : 개발/운영 환경 컨테이너화(선택)
 - **Python-dotenv** : 환경변수 관리
+
+## 🎬 데모 화면
+![DocumentAI 시연](./GIF/AIDocumentGIF.gif)
