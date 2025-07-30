@@ -16,8 +16,7 @@ from flask import (
     redirect,
     url_for,
     session,
-    jsonify,
-    g,
+    jsonify
 )
 from flask_socketio import SocketIO, emit, join_room, leave_room
 from dotenv import load_dotenv
@@ -63,13 +62,13 @@ app = Flask(__name__)
 app.secret_key = os.getenv(
     "FLASK_SECRET_KEY",
     "your_super_secret_key_change_me_in_production_really_it_is_important_for_security",
-)  # 강력한 SECRET_KEY 사용
+) 
 
 # ───[ PDF 업로드 폴더: 기존 ]───────────────────────────────────
 UPLOAD_FOLDER = "static/uploads"
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-os.makedirs("output", exist_ok=True)  # output 폴더는 사용되지 않는다면 제거 가능
+os.makedirs("output", exist_ok=True) 
 
 # ───[ 프로필 이미지 업로드 폴더: 신규 ]────────────────────────
 PROFILE_UPLOAD_FOLDER = os.path.join(app.static_folder, "profile_images")
@@ -164,7 +163,7 @@ def generate_preview_summary(filepath):
     """(신규) PDF의 첫 페이지만으로 빠른 미리보기 요약을 생성"""
     try:
         doc = fitz.open(filepath)
-        first_page_text = doc[0].get_text(sort=True).strip()  # 정렬 옵션 추가
+        first_page_text = doc[0].get_text(sort=True).strip() 
         doc.close()
 
         if not first_page_text:
@@ -185,7 +184,7 @@ def generate_preview_summary(filepath):
 
         preview_summary = chain.invoke(
             {"text": first_page_text[:2000]}
-        ).content  # 너무 길 경우를 대비해 텍스트 양 제한
+        ).content 
         return preview_summary
     except Exception as e:
         print(f"미리보기 요약 생성 중 오류: {e}")
@@ -267,7 +266,6 @@ def process_full_document_in_background(
                 f"--- ✅ 백그라운드 DB 업데이트 완료: {filepath} ({time() - t_start:.2f}s) ---"
             )
 
-            # 🌟 2. (핵심) 작업 완료 신호를 해당 사용자에게만 전송! 🌟
             socketio.emit(
                 "summary_updated",
                 {
@@ -276,7 +274,7 @@ def process_full_document_in_background(
                     "message": "문서 전체에 대한 분석이 완료되었습니다!",
                 },
                 room=user_id,
-            )  # user_id를 방(room) 이름으로 사용하여 특정 사용자에게만 보냅니다.
+            )  
 
             print(f"--- 📡 백그라운드 Socket.IO 신호 전송 완료 (To: {user_id}) ---")
 
@@ -296,17 +294,17 @@ def process_full_document_in_background(
             traceback.print_exc()
 
 
-# 🌟 MongoDB 설정 🌟
+#  MongoDB 설정 
 MONGO_URI = os.getenv(
     "MONGO_URI", "mongodb://localhost:27017/"
-)  # .env 파일에서 MONGO_URI 로드 또는 기본값 사용
+) 
 client = MongoClient(MONGO_URI)
-db = client.pdf_chat_db  # 데이터베이스 이름 (예: pdf_chat_db)
-chat_history_collection = db.chat_history  # 채팅 기록 컬렉션
+db = client.pdf_chat_db  
+chat_history_collection = db.chat_history  
 document_meta_collection = (
     db.document_meta
-)  # 문서 메타데이터 (filepath, summary, questions) 컬렉션
-users_collection = db.users  # 🌟 사용자 정보를 저장할 컬렉션 🌟
+)  
+users_collection = db.users  
 
 socketio = SocketIO(app)
 
@@ -323,17 +321,16 @@ def handle_connect():
 
 @socketio.on("disconnect")
 def handle_disconnect():
-    # 필요하다면 방에서 나가는 로직을 추가할 수 있지만, 보통은 자동 처리됩니다.
     print(f"--- 🤦‍♂️ Client disconnected: {request.sid} ---")
 
 
-# 🌟 Flask-Login 초기화 🌟
+#  Flask-Login 초기화 
 login_manager = LoginManager()
 login_manager.init_app(app)
-login_manager.login_view = "login"  # 로그인되지 않은 사용자가 @login_required 페이지 접근 시 리다이렉트할 라우트
+login_manager.login_view = "login" 
 
 
-# 🌟 User 모델 정의 (MongoDB와 연동) 🌟
+# User 모델 정의 (MongoDB와 연동) 
 class User(UserMixin):
     def __init__(self, user_data):
         self._id = user_data["_id"]
@@ -342,7 +339,6 @@ class User(UserMixin):
         self.profile_image = user_data.get("profile_image", "default-profile.png")
 
     def get_id(self):
-        # Flask-Login은 사용자 ID를 문자열로 기대하므로 ObjectId를 문자열로 변환
         return str(self._id)
 
     def set_password(self, password):
@@ -354,7 +350,7 @@ class User(UserMixin):
         return check_password_hash(self.password_hash, password)
 
 
-# 🌟 Flask-Login이 사용자 ID를 기반으로 User 객체를 로드하는 함수 🌟
+#  Flask-Login이 사용자 ID를 기반으로 User 객체를 로드하는 함수 
 @login_manager.user_loader
 def load_user(user_id):
     # MongoDB에서 ObjectId를 사용하여 사용자 문서 찾기
@@ -364,16 +360,15 @@ def load_user(user_id):
     return None
 
 
-# 🌟 초기 사용자 데이터베이스 설정 및 테스트 사용자 생성 🌟
-# 앱 시작 시 한 번만 실행
+#  초기 사용자 데이터베이스 설정 및 테스트 사용자 생성 
 def initialize_database():
-    with app.app_context():  # app.app_context() 대신 app.app_content()로 수정 (오타 수정)
+    with app.app_context():
         if users_collection.find_one({"username": "testuser"}) is None:
             test_user_data = {
                 "username": "testuser",
                 "password_hash": generate_password_hash(
                     "password123"
-                ),  # 테스트 비밀번호 'password123'
+                ), 
             }
             users_collection.insert_one(test_user_data)
             print(
@@ -453,7 +448,7 @@ def nl2br_filter(s):
 # --- Flask 라우트 ---
 
 
-# 🌟 루트 URL: 로그인 상태에 따라 로그인 페이지 또는 PDF Chat 페이지로 리다이렉트 🌟
+#  루트 URL: 로그인 상태에 따라 로그인 페이지 또는 PDF Chat 페이지로 리다이렉트 
 @app.route("/")
 def root():
     if current_user.is_authenticated:
@@ -461,14 +456,14 @@ def root():
     return redirect(url_for("login"))
 
 
-# 🌟 로그인 페이지 🌟
+#  로그인 페이지 
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if current_user.is_authenticated:
         return redirect(url_for("pdf_chat_page"))
 
     error = None
-    message = request.args.get("message")  # 회원가입 성공 메시지 등을 받을 수 있음
+    message = request.args.get("message")  
 
     if request.method == "POST":
         username = request.form["username"]
@@ -479,13 +474,13 @@ def login():
         if user_data and check_password_hash(user_data["password_hash"], password):
             session.clear()
 
-            login_user(User(user_data))  # Flask-Login으로 사용자 로그인 처리
+            login_user(User(user_data))  
             return render_template("login.html", error=None)
         error = "아이디 또는 비밀번호가 올바르지 않습니다."
     return render_template("login.html", error=error, message=message)
 
 
-# 🌟 회원가입 페이지 🌟
+#  회원가입 페이지 
 @app.route("/register", methods=["GET", "POST"])
 def register():
     if current_user.is_authenticated:
@@ -497,7 +492,6 @@ def register():
         password = request.form["password"]
         confirm_password = request.form["confirm_password"]
 
-        # 1) 프로필 이미지 처리
         file = request.files.get("profile_image")
         if file and allowed_file(file.filename):
             filename = secure_filename(file.filename)
@@ -508,10 +502,9 @@ def register():
 
         if password != confirm_password:
             error = "비밀번호가 일치하지 않습니다."
-        elif users_collection.find_one({"username": username}):  # 아이디 중복 확인
+        elif users_collection.find_one({"username": username}): 
             error = "이미 존재하는 아이디입니다."
         else:
-            # 새로운 사용자 MongoDB에 저장
             new_user_data = {
                 "username": username,
                 "password_hash": generate_password_hash(password),
@@ -527,24 +520,24 @@ def register():
     return render_template("login.html", error=error, show_register_modeal=True)
 
 
-# 🌟 로그아웃 라우트 🌟
+#  로그아웃 라우트 
 @app.route("/logout")
-@login_required  # 로그인된 사용자만 로그아웃 가능
+@login_required  
 def logout():
-    logout_user()  # Flask-Login으로 로그아웃 처리
+    logout_user()  
     session.clear()
     return redirect(url_for("login", message="로그아웃되었습니다."))
 
 
-# 🌟 PDF Chat 메인 페이지 🌟
+#  PDF Chat 메인 페이지 
 @app.route("/pdf_chat")
-@login_required  # 🌟 로그인된 사용자만 접근 가능 🌟
+@login_required  
 def pdf_chat_page():
     print(f"--- /pdf_chat 요청 수신 (사용자: {current_user.username}) ---")
     print(
         f"--- [디버깅] /pdf_chat 페이지 로드. 현재 세션 경로: {session.get('filepath')} ---"
     )
-    current_filepath = session.get("filepath")  # 현재 세션에 저장된 PDF 파일 경로
+    current_filepath = session.get("filepath")  
 
     print("current_filepath (세션):", current_filepath)
     print("=== 해당 PDF의 DB 채팅 엔트리 ===")
@@ -557,41 +550,35 @@ def pdf_chat_page():
     ):
         print("DB entry:", entry)
 
-    # 🌟 MongoDB에서 현재 사용자의 문서 이력 로드 (사용자별로 관리하려면 user_id 필터 추가 필요) 🌟
-    # 현재는 세션에 저장된 history를 사용하지만, MongoDB에 저장된 문서 메타데이터에서 가져올 수 있음
-    # 예: history_from_db = list(document_meta_collection.find({'user_id': current_user.get_id()}).sort('timestamp', -1).limit(10))
+    #  MongoDB에서 현재 사용자의 문서 이력 로드 (사용자별로 관리하려면 user_id 필터 추가 필요) 
+    
     history_from_db = list(
         document_meta_collection.find({"user_id": current_user.get_id()})
         .sort("timestamp", -1)
         .limit(10)
-    )  # 모든 문서 중 최신 10개
+    )  
     history_filenames = [
         doc.get("display_name", "") for doc in history_from_db
-    ]  # 파일 이름만 추출
+    ]  
 
-    # 🌟 MongoDB에서 해당 파일의 채팅 기록 로드 🌟
+    #  MongoDB에서 해당 파일의 채팅 기록 로드 
     current_chat_history = []
     if current_filepath:
-        # MongoDB에 저장된 chat_history는 {'role': 'user/ai', 'message': '...', 'pdf_path': '...'} 형태
         db_history = chat_history_collection.find(
             {"pdf_path": current_filepath, "user_id": current_user.get_id()}
         ).sort("timestamp", 1)
         for entry in db_history:
-            # 추천질문만 list
             if isinstance(entry["message"], list):
                 msg_content = entry["message"]
             elif isinstance(entry["message"], dict):
-                msg_content = entry["message"]  # dict는 그대로!
+                msg_content = entry["message"]  
             else:
                 msg_content = str(entry["message"])
             current_chat_history.append((entry["role"], msg_content))
 
-        # 🌟 MongoDB에서 문서 메타데이터 로드 (요약, 추천 질문) 🌟
+        #  MongoDB에서 문서 메타데이터 로드 (요약, 추천 질문) 
         doc_meta = document_meta_collection.find_one({"filepath": current_filepath})
         if doc_meta:
-            # 초기 시스템 메시지는 DB에서 로드된 채팅 기록에 포함되지 않으므로, 여기서 다시 추가
-            # 단, 이미 채팅 기록에 시스템 메시지가 있다면 중복 추가 방지
-            # (이 로직은 클라이언트 JS에서 처리하는 것이 더 적합할 수 있음)
             if not current_chat_history or current_chat_history[0][0] != "시스템":
                 intro_message = f"""
                     안녕하세요! 👋
@@ -614,18 +601,14 @@ def pdf_chat_page():
     return render_template(
         "index.html",
         filepath=current_filepath,
-        summary=summary,  # 현재 세션 요약 (DB에서 로드된 것과 다를 수 있음)
-        history=history_filenames,  # MongoDB에서 로드된 파일 이름 목록
+        summary=summary,  
+        history=history_filenames, 
         chat_history=current_chat_history,
         recommended_question=session.get(
             "recommended_question", []
         ),  # 현재 세션 추천 질문
-        username=current_user.username,  # 🌟 로그인된 사용자 이름 템플릿으로 전달 🌟
+        username=current_user.username,  #  로그인된 사용자 이름 템플릿으로 전달 
     )
-
-
-# L376 근처의 upload_ajax 함수 전체를 아래 내용으로 교체하세요.
-
 
 @app.route("/upload_ajax", methods=["POST"])
 @login_required
@@ -660,7 +643,7 @@ def upload_ajax():
 
     if doc_in_db:
         status = "same"
-        upload_msg = "이미 해당 문서로 대화한 이력이 있습니다. <br> 기존 대화를 불러오겠습니다."
+        upload_msg = "이미 해당 문서로 대화한 이력이 있습니다. 😊 <br> 기존 대화 내용을 불러오겠습니다. 😊"
         response = {
             "message": upload_msg,
             "status": status,
@@ -719,8 +702,6 @@ def upload_ajax():
     print(f"[프로파일] 미리보기 요약 생성: {time() - t_preview:.3f}s")
 
     # ── 백그라운드에서 전체 문서 처리 시작 ──────────────────
-    # ⚠️ 경고: threading은 간단한 시연용입니다. 실제 프로덕션 환경에서는
-    # 반드시 Celery나 Dramatiq 같은 전문 작업 큐를 사용해야 합니다.
     background_thread = threading.Thread(
         target=process_full_document_in_background,
         args=(
@@ -736,9 +717,9 @@ def upload_ajax():
     return jsonify(response)
 
 
-# 🌟 Socket.IO 이벤트 핸들러 🌟
+#  Socket.IO 이벤트 핸들러 
 @socketio.on("send_question")
-@login_required  # 🌟 Socket.IO 이벤트도 로그인된 사용자만 가능 🌟
+@login_required  #  Socket.IO 이벤트도 로그인된 사용자만 가능 
 def handle_send_question(data):
     user_question = data.get("user_question")
     pdf_path_from_client = data.get("pdf_path")
@@ -862,7 +843,7 @@ def process_question_and_stream(
         ai_answer = full_answer
         page_num = source_page + 1 if source_page is not None else None
 
-        # 성공 답변 MongoDB 저장
+        
         chat_history_collection.insert_one(
             {
                 "user_id": user_id_for_db,
@@ -878,7 +859,7 @@ def process_question_and_stream(
         )
         print("AI 답변 MongoDB 저장 완료.")
 
-        # 스트리밍 종료 이벤트 (text + page)
+        
         socketio.emit(
             "ai_response_end",
             {
@@ -890,12 +871,11 @@ def process_question_and_stream(
         print("ai_response_end 이벤트 전송 완료.")
 
     except Exception as e:
-        # 에러 처리
+       
         error_msg = f"오류가 발생하여 답변을 생성할 수 없습니다: {e}"
         print(f"예외 발생: {error_msg}")
         traceback.print_exc()
 
-        # 에러 MongoDB 저장
         chat_history_collection.insert_one(
             {
                 "user_id": user_id_for_db,
@@ -907,17 +887,13 @@ def process_question_and_stream(
         )
         print("에러 메시지 MongoDB 저장 완료.")
 
-        # 에러 청크 전송
         socketio.emit("ai_response_chunk", {"chunk": error_msg}, room=session_id)
 
-        # 에러 스트리밍 종료 (text + page=None)
         socketio.emit(
             "ai_response_end", {"text": error_msg, "page": None}, room=session_id
         )
         print("에러용 ai_response_end 이벤트 전송 완료.")
 
-
-# Flask 앱 실행
 if __name__ == "__main__":
     initialize_database()
     socketio.run(

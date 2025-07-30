@@ -182,64 +182,54 @@
                 });
         });
 
-        // pdf-frame 이라는 id의 <iframe> 을 찾아, #page=N 파라미터를 교체합니다
         function goToPage(pageNum) {
             const iframe = document.querySelector('.pdf-viewer iframe');
-            // 기존 src 에서 해시(#…) 이전까지 잘라내고
             if (!iframe) return;
             const base = iframe.src.split('#')[0];
             console.log("iframe src before:", iframe.src, "| base:", base, "| target page:", pageNum);
-            // #page=… 를 붙여 다시 로드
             iframe.src = `${base}#page=${pageNum}`;
         }
 
-        // 🌟🌟🌟 Socket.IO 클라이언트 초기화 🌟🌟🌟
+        //  Socket.IO 클라이언트 초기화 
         const socket = io();
-        let currentAiMessageDiv = null; // 스트리밍 중인 AI 답변을 담을 div
+        let currentAiMessageDiv = null; 
         const chatBox = document.querySelector('.chat-box');
         const chatHistory = document.querySelector('.chat-history');
-        const pdfProcessingMessage = document.getElementById('pdf-processing-message'); // 🌟 새로운 요소 참조
+        const pdfProcessingMessage = document.getElementById('pdf-processing-message'); 
 
         function initializeChatState() {
-            // 1. 채팅 기록을 담고 있는 부모 컨테이너와 기존 메시지를 찾습니다.
-            const chatContainer = document.querySelector('.chat-history'); // 실제 채팅창 영역
+            
+            const chatContainer = document.querySelector('.chat-history'); 
             if (!chatContainer) return; // 채팅창이 없으면 종료
 
             const existingBubbles = chatContainer.querySelectorAll('.chat-bubble');
             console.log(`[상태 초기화] ${existingBubbles.length}개의 기존 메시지를 발견했습니다.`);
 
-            // 2. 🌟 핵심 로직: 기존 메시지가 1개라도 있으면 '채팅 모드'로 전환합니다.
-            // (환영 메시지도 .chat-bubble일 수 있으므로 1개 초과일 때를 조건으로 할 수 있습니다.
-            // 상황에 맞게 existingBubbles.length > 0 또는 > 1 로 조정하세요.)
+            
             if (existingBubbles.length > 0) {
-                // UI를 '채팅 모드'로 만드는 상위 컨테이너를 찾습니다.
-                // CSS를 기반으로 추정할 때, 이 컨테이너일 확률이 높습니다.
-                // 실제 클래스 이름이 다르면 이 부분을 수정해야 합니다.
+                
                 const mainContainer = document.querySelector('.gemini-center-container');
                 if (mainContainer) {
                     mainContainer.classList.add('active-chat');
                     console.log("[상태 초기화] 채팅 기록이 존재하여 'active-chat' 모드로 전환합니다.");
                 }
 
-                // 3. 채팅창을 맨 아래로 스크롤합니다.
-                // setTimeout으로 약간의 지연을 주어 렌더링 후 스크롤이 정확하게 동작하도록 합니다.
+                
                 setTimeout(() => {
                     chatContainer.scrollTop = chatContainer.scrollHeight;
                     console.log("[상태 초기화] 채팅창을 맨 아래로 스크롤했습니다.");
-                }, 0); // 0ms 지연으로도 충분합니다.
+                }, 0); 
             }
         }
 
-        // 🌟🌟🌟 채팅 메시지를 동적으로 추가하고 스크롤하는 헬퍼 함수 🌟🌟🌟
+        // 채팅 메시지를 동적으로 추가하고 스크롤하는 헬퍼 함수 
         function appendChatMessage(role, message, isStreaming = false) {
             console.log("[appendChatMessage] role:", role, "| message:", message);
             console.log("chatHistory DOM:", chatHistory);
             hideTypingIndicator();
 
-            // AI 답변 스트리밍: 기존 말풍선에 이어붙이기
             if (role === 'ai' && isStreaming) {
                 if (!currentAiMessageDiv) {
-                    // 스트리밍 첫 청크라면 새 div 생성
                     const newMessageDiv = document.createElement('div');
                     newMessageDiv.className = `chat-bubble ai`;
                     newMessageDiv.innerHTML = `<div class="message bg-white border-start border-primary border-4 shadow-sm">
@@ -247,11 +237,9 @@
                     chatHistory.appendChild(newMessageDiv);
                     currentAiMessageDiv = newMessageDiv;
                 } else {
-                    // 두 번째 청크부터는 기존 div에 이어붙임
                     currentAiMessageDiv.querySelector('.message').innerHTML += message.replace(/\r?\n/g, '<br>');
                 }
             } else {
-                // 일반 메시지/스트리밍 종료 후 새로운 메시지: 새 div 생성
                 const newMessageDiv = document.createElement('div');
                 newMessageDiv.className = `chat-bubble ${role}`;
 
@@ -265,21 +253,14 @@
                 newMessageDiv.innerHTML = `<div class="message ${messageClass}">${message.replace(/\r?\n/g, '<br>')}</div>`;
                 chatHistory.appendChild(newMessageDiv);
                 if (role === 'ai') {
-                    currentAiMessageDiv = null; // 일반 메시지는 스트리밍 div와 분리
+                    currentAiMessageDiv = null; 
                 }
             }
             chatHistory.scrollTop = chatHistory.scrollHeight;
         }
 
-        function showChatLoadingOverlay() {
-            // 제거된 기능
-        }
 
-        function hideChatLoadingOverlay() {
-            // 제거된 기능
-        }
-
-        // 🌟🌟🌟 타이핑 인디케이터 함수 🌟🌟🌟
+        //  타이핑 인디케이터 함수 
         let typingIndicatorElement;
 
         function getOrCreateTypingIndicator() {
@@ -287,16 +268,14 @@
                 typingIndicatorElement = document.createElement('div');
                 typingIndicatorElement.className = 'chat-bubble typing-indicator';
 
-                // 🌟 AI avatar 추가
                 const avatarImg = document.createElement('img');
-                avatarImg.src = "/static/img/ai-avatar.png"; // 경로 맞게!
+                avatarImg.src = "/static/img/ai-avatar.png"; 
                 avatarImg.className = "ai-avatar-img";
                 avatarImg.style.width = "42px";
                 avatarImg.style.height = "42px";
                 avatarImg.style.borderRadius = "50%";
                 avatarImg.style.marginRight = "14px";
 
-                // 메시지 부분 (점 세 개)
                 const msgDiv = document.createElement('div');
                 msgDiv.className = "message bg-white border-start border-primary border-4 shadow-sm d-flex align-items-center";
                 msgDiv.innerHTML = `
@@ -330,16 +309,15 @@
 
         function hideTypingIndicator() {
             console.log("[hideTypingIndicator] 호출됨");
-            // 기존 getOrCreateTypingIndicator() 대신 아래처럼 명확하게 찾기
             const indicator = document.querySelector('.typing-indicator-bubble');
             if (indicator && indicator.parentNode) {
-                indicator.parentNode.removeChild(indicator); // DOM에서 완전히 제거!
+                indicator.parentNode.removeChild(indicator); 
                 console.log("[UI Update] 타이핑 인디케이터 삭제.");
             }
         }
 
 
-        // 🌟🌟🌟 추천 질문 버튼에 이벤트 리스너를 동적으로 연결하는 함수 (이벤트 위임 적용) 🌟🌟🌟
+        // 추천 질문 버튼에 이벤트 리스너를 동적으로 연결하는 함수 (이벤트 위임 적용) 
         function attachRecommendedQuestionListeners() {
             if (!chatBox) {
                 console.error("[이벤트 연결 오류] chat-box 요소를 찾을 수 없습니다.");
@@ -406,36 +384,24 @@
             }
 
             $(document).ready(function () {
-                // 1. Socket.IO 서버에 연결합니다.
                 var socket = io();
 
-                // 2. 서버와 성공적으로 연결되었을 때 콘솔에 로그를 남깁니다.
                 socket.on('connect', function () {
                     console.log('[Socket.IO] ✅ 서버에 성공적으로 연결되었습니다.');
                 });
 
-                // ----------------------------------------------------
-                // 🌟 (핵심) 디버깅을 위한 '모든 이벤트 감지' 리스너 🌟
-                // ----------------------------------------------------
-                // 서버에서 어떤 이름으로든 이벤트를 보내면, 이 부분이 감지해서 콘솔에 보여줍니다.
-                // 'summary_updated' 이벤트가 정말 오고 있는지 확실히 알 수 있습니다.
                 socket.onAny((eventName, ...args) => {
                     console.log(`[Socket.IO 이벤트 수신 📡] 이벤트명: "${eventName}"`, args);
                 });
 
-                // ----------------------------------------------------
-                // 🌟 (핵심) '요약 완료' 신호 처리 부분 (안정성 강화) 🌟
-                // ----------------------------------------------------
                 socket.on('summary_updated', function (data) {
                     console.log('✅ "summary_updated" 신호를 받았습니다! 화면 업데이트를 시작합니다.', data);
                     window.location.reload();
 
                     try {
-                        // 1) 로딩 인디케이터가 있으면 숨기기 (필요하다면)
                         const loading = document.getElementById('loading-indicator');
                         if (loading) loading.style.display = 'none';
 
-                        // 2) 요약문 영역 업데이트
                         if (data && data.summary) {
                             const summaryContainer = document.getElementById('summary-container');
                             const summaryContent = document.getElementById('summary-content');
@@ -443,14 +409,11 @@
                             summaryContainer.style.display = 'block';
                         }
 
-                        // 3) (선택) 추천 질문 목록 업데이트
                         if (data && Array.isArray(data.questions)) {
                             const chatHistory = document.querySelector('.chat-history');
-                            // 기존 추천 질문 bubble 삭제 (있다면)
                             const old = chatHistory.querySelector('.chat-bubble.ai.recommendations');
                             if (old) old.remove();
 
-                            // 새로운 추천 질문 bubble 생성
                             const bubble = document.createElement('div');
                             bubble.className = 'chat-bubble ai recommendations';
                             let html = `<div class="message bg-white border-start border-primary border-4 shadow-sm">
@@ -469,7 +432,6 @@
                             chatHistory.scrollTop = chatHistory.scrollHeight;
                         }
 
-                        // 4) 시스템 메시지 추가
                         if (data && data.message) {
                             appendChatMessage('system', data.message);
                         }
@@ -478,7 +440,6 @@
                         console.error('🚨 summary_updated 처리 중 오류:', e);
                     }
                 });
-                // 4. 서버에서 '분석 실패' 신호를 보냈을 때 처리하는 부분
                 socket.on('update_failed', function (data) {
                     console.error('🚨 서버에서 분석 실패 신호를 받았습니다:', data);
                     if (data && data.message) {
@@ -496,10 +457,10 @@
                 const form = document.getElementById("uploadForm");
                 const formData = new FormData(form);
 
-                // 🌟🌟🌟 문서 요약 로딩 스피너 메시지 표시 🌟🌟🌟
+                //  문서 요약 로딩 스피너 메시지 표시 
                 if (pdfProcessingMessage) {
-                    pdfProcessingMessage.style.display = 'flex'; // 보이게 설정
-                    chatHistory.scrollTop = chatHistory.scrollHeight; // 스크롤 하단으로
+                    pdfProcessingMessage.style.display = 'flex'; 
+                    chatHistory.scrollTop = chatHistory.scrollHeight; 
                     console.log("[PDF 업로드] '문서 요약 중...' 메시지 표시.");
                 }
 
@@ -524,7 +485,7 @@
                             const pdfViewer = document.querySelector(".pdf-viewer");
                             const newIfram = document.createElement("iframe");
                             newIfram.id = "pdf-frame";
-                            // PDF URL에 #navpanes=0 매개변수 추가
+            
                             newIfram.src = `/static/${data.filepath}#navpanes=0`;
 
                             pdfViewer.innerHTML = '';
@@ -546,24 +507,21 @@
                                 console.log(`[문서 이력] 문서 이력에 '${data.filename}' 추가됨.`);
                             }
 
-                            // 🌟🌟🌟 문서 요약 로딩 스피너 메시지 숨기기 🌟🌟🌟
                             if (pdfProcessingMessage) {
-                                pdfProcessingMessage.style.display = 'none'; // 숨기기
+                                pdfProcessingMessage.style.display = 'none'; 
                                 console.log("[PDF 업로드] '문서 요약 중...' 메시지 숨김.");
                             }
 
 
 
                             if (data.status === "new") {
-                                // 새 문서면 안내문 전체 + 요약 둘 다 말풍선!
                                 if (data.message) {
-                                    appendChatMessage('system', data.message); // 안내 전체!
+                                    appendChatMessage('system', data.message); 
                                 }
                                 if (data.summary) {
-                                    appendChatMessage('system', data.summary); // 요약 별도!
+                                    appendChatMessage('system', data.summary); 
                                 }
                             } else {
-                                // 중복 업로드면 안내문만
                                 if (data.message) {
                                     appendChatMessage('system', data.message);
                                 }
@@ -572,7 +530,7 @@
                             console.error("[Fetch 오류] 서버 응답 상태가 'ok'/ 'processing' / 'new' / 'same'이 아님:", data.message);
                             localStorage.removeItem('pdfRecommendedQuestions');
 
-                            // 🌟🌟🌟 오류 발생 시 로딩 스피너 메시지 숨기기 🌟🌟🌟
+                            //  오류 발생 시 로딩 스피너 메시지 숨기기 
                             if (pdfProcessingMessage) {
                                 pdfProcessingMessage.style.display = 'none';
                                 console.log("[PDF 업로드] 오류 발생으로 '문서 요약 중...' 메시지 숨김.");
@@ -584,7 +542,7 @@
                         console.error("[Fetch 예외] 요약 중 오류 발생:", error);
                         localStorage.removeItem('pdfRecommendedQuestions');
 
-                        // 🌟🌟🌟 예외 발생 시 로딩 스피너 메시지 숨기기 🌟🌟🌟
+                        //  예외 발생 시 로딩 스피너 메시지 숨기기
                         if (pdfProcessingMessage) {
                             pdfProcessingMessage.style.display = 'none';
                             console.log("[PDF 업로드] 예외 발생으로 '문서 요약 중...' 메시지 숨김.");
@@ -627,24 +585,20 @@
             // AI 답변 청크 수신 (스트리밍)
             socket.on('ai_response_chunk', function (data) {
                 console.log("[Socket.IO] 청크 수신:", data.chunk);
-                // 1. 답변 청크가 오면 무조건 입력중 인디케이터는 없앰!
                 hideTypingIndicator();
 
                 if (!aiTypingDiv) {
-                    // AI 말풍선(div) 생성
                     const newBubble = document.createElement('div');
-                    newBubble.className = 'chat-bubble ai d-flex align-items-start'; // flex 정렬
+                    newBubble.className = 'chat-bubble ai d-flex align-items-start'; 
 
-                    // 🌟 AI 프로필 이미지
                     const avatarImg = document.createElement('img');
-                    avatarImg.src = data.avatar || "/static/img/ai-avatar.png"; // 반드시 경로 확인!
+                    avatarImg.src = data.avatar || "/static/img/ai-avatar.png"; 
                     avatarImg.className = "ai-avatar-img";
                     avatarImg.style.width = "42px";
                     avatarImg.style.height = "42px";
                     avatarImg.style.borderRadius = "50%";
                     avatarImg.style.marginRight = "14px";
 
-                    // 메시지 div
                     const msgDiv = document.createElement('div');
                     msgDiv.className = "message bg-white border-start border-primary border-4 shadow-sm";
 
@@ -653,15 +607,13 @@
                     document.querySelector('.chat-history').appendChild(newBubble);
 
                     aiTypingDiv = msgDiv;
-                    aiTypingFullText = ""; // 초기화
+                    aiTypingFullText = ""; 
                 }
 
                 aiTypingFullText += data.chunk;
                 animateTyping(aiTypingFullText, aiTypingDiv);
             });
 
-
-            // 스트리밍 종료시 페이지 뱃지 붙이기
             socket.on('ai_response_end', function (data) {
                 hideTypingIndicator();
                 const finalText = data.full_text || aiTypingFullText;
@@ -718,21 +670,16 @@
                 }
             });
 
-            // 모든 .page-badge에 대해 Bootstrap tooltip 적용
             function activatePageBadgeTooltips() {
-                // Bootstrap Tooltip 전체 활성화
                 var tooltipTriggerList = [].slice.call(document.querySelectorAll('.page-badge[data-bs-toggle="tooltip"]'));
                 tooltipTriggerList.forEach(function (tooltipTriggerEl) {
-                    // 이미 초기화된 경우도 안전하게 처리
                     if (!bootstrap.Tooltip.getInstance(tooltipTriggerEl)) {
                         new bootstrap.Tooltip(tooltipTriggerEl);
                     }
                 });
             }
 
-            // 문서 로딩 때 실행
             document.addEventListener('DOMContentLoaded', activatePageBadgeTooltips);
-            // (만약 JS로 채팅 메시지 추가하는 부분이 있으면, append 이후에도 호출!)
 
             function showPdfProcessing() {
                 document.getElementById('pdf-processing-message').style.display = 'block';
