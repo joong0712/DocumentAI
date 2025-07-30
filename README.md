@@ -50,6 +50,6 @@ AI가 문서를 읽고 **주요 내용 요약**과 함께,
 - **Python-dotenv** : 환경변수 관리
 
 ## 🎬 데모 화면
-![DocumentAI 시연](./GIF/AIDocumentGIF.gif)
+![DocumentAI 시연](./gif/AIDocumentGIF.gif)
 
 > 실제 PDF 업로드, 요약, 추천 질문, AI 질의응답 흐름을 한눈에 볼 수 있습니다.
