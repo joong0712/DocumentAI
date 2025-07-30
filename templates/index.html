@@ -190,39 +190,39 @@
             iframe.src = `${base}#page=${pageNum}`;
         }
 
-        //  Socket.IO 클라이언트 초기화 
+        //  Socket.IO 클라이언트 초기화
         const socket = io();
-        let currentAiMessageDiv = null; 
+        let currentAiMessageDiv = null;
         const chatBox = document.querySelector('.chat-box');
         const chatHistory = document.querySelector('.chat-history');
-        const pdfProcessingMessage = document.getElementById('pdf-processing-message'); 
+        const pdfProcessingMessage = document.getElementById('pdf-processing-message');
 
         function initializeChatState() {
-            
-            const chatContainer = document.querySelector('.chat-history'); 
+
+            const chatContainer = document.querySelector('.chat-history');
             if (!chatContainer) return; // 채팅창이 없으면 종료
 
             const existingBubbles = chatContainer.querySelectorAll('.chat-bubble');
             console.log(`[상태 초기화] ${existingBubbles.length}개의 기존 메시지를 발견했습니다.`);
 
-            
+
             if (existingBubbles.length > 0) {
-                
+
                 const mainContainer = document.querySelector('.gemini-center-container');
                 if (mainContainer) {
                     mainContainer.classList.add('active-chat');
                     console.log("[상태 초기화] 채팅 기록이 존재하여 'active-chat' 모드로 전환합니다.");
                 }
 
-                
+
                 setTimeout(() => {
                     chatContainer.scrollTop = chatContainer.scrollHeight;
                     console.log("[상태 초기화] 채팅창을 맨 아래로 스크롤했습니다.");
-                }, 0); 
+                }, 0);
             }
         }
 
-        // 채팅 메시지를 동적으로 추가하고 스크롤하는 헬퍼 함수 
+        // 채팅 메시지를 동적으로 추가하고 스크롤하는 헬퍼 함수
         function appendChatMessage(role, message, isStreaming = false) {
             console.log("[appendChatMessage] role:", role, "| message:", message);
             console.log("chatHistory DOM:", chatHistory);
@@ -233,7 +233,7 @@
                     const newMessageDiv = document.createElement('div');
                     newMessageDiv.className = `chat-bubble ai`;
                     newMessageDiv.innerHTML = `<div class="message bg-white border-start border-primary border-4 shadow-sm">
-            ${message.replace(/\r?\n/g, '<br>')}</div>`;
+        ${message.replace(/\r?\n/g, '<br>')}</div>`;
                     chatHistory.appendChild(newMessageDiv);
                     currentAiMessageDiv = newMessageDiv;
                 } else {
@@ -253,14 +253,14 @@
                 newMessageDiv.innerHTML = `<div class="message ${messageClass}">${message.replace(/\r?\n/g, '<br>')}</div>`;
                 chatHistory.appendChild(newMessageDiv);
                 if (role === 'ai') {
-                    currentAiMessageDiv = null; 
+                    currentAiMessageDiv = null;
                 }
             }
             chatHistory.scrollTop = chatHistory.scrollHeight;
         }
 
 
-        //  타이핑 인디케이터 함수 
+        // 타이핑 인디케이터 함수
         let typingIndicatorElement;
 
         function getOrCreateTypingIndicator() {
@@ -269,7 +269,7 @@
                 typingIndicatorElement.className = 'chat-bubble typing-indicator';
 
                 const avatarImg = document.createElement('img');
-                avatarImg.src = "/static/img/ai-avatar.png"; 
+                avatarImg.src = "/static/img/ai-avatar.png";
                 avatarImg.className = "ai-avatar-img";
                 avatarImg.style.width = "42px";
                 avatarImg.style.height = "42px";
@@ -279,11 +279,11 @@
                 const msgDiv = document.createElement('div');
                 msgDiv.className = "message bg-white border-start border-primary border-4 shadow-sm d-flex align-items-center";
                 msgDiv.innerHTML = `
-        <span>AI가 입력 중</span>
-        <span class="dot"></span>
-        <span class="dot"></span>
-        <span class="dot"></span>
-        `;
+    <span>AI가 입력 중</span>
+    <span class="dot"></span>
+    <span class="dot"></span>
+    <span class="dot"></span>
+    `;
 
                 typingIndicatorElement.appendChild(avatarImg);
                 typingIndicatorElement.appendChild(msgDiv);
@@ -311,13 +311,13 @@
             console.log("[hideTypingIndicator] 호출됨");
             const indicator = document.querySelector('.typing-indicator-bubble');
             if (indicator && indicator.parentNode) {
-                indicator.parentNode.removeChild(indicator); 
+                indicator.parentNode.removeChild(indicator);
                 console.log("[UI Update] 타이핑 인디케이터 삭제.");
             }
         }
 
 
-        // 추천 질문 버튼에 이벤트 리스너를 동적으로 연결하는 함수 (이벤트 위임 적용) 
+        // 추천 질문 버튼에 이벤트 리스너를 동적으로 연결하는 함수 (이벤트 위임 적용)
         function attachRecommendedQuestionListeners() {
             if (!chatBox) {
                 console.error("[이벤트 연결 오류] chat-box 요소를 찾을 수 없습니다.");
@@ -349,6 +349,13 @@
                 }
             });
             console.log("[이벤트 연결] 추천 질문 버튼에 이벤트 위임 리스너가 연결되었습니다.");
+        }
+
+        function hideChatLoadingOverlay() {
+            const overlay = document.getElementById('chat-loading-overlay');
+            if (overlay) {
+                overlay.style.display = 'none';
+            }
         }
         window.addEventListener('DOMContentLoaded', function () {
             console.log("--- DOMContentLoaded 이벤트 발생 ---");
@@ -417,16 +424,16 @@
                             const bubble = document.createElement('div');
                             bubble.className = 'chat-bubble ai recommendations';
                             let html = `<div class="message bg-white border-start border-primary border-4 shadow-sm">
-            <div class="fw-bold mb-2">📌 추천 질문:</div>
-            <div class="d-flex flex-wrap gap-2">`;
+        <div class="fw-bold mb-2">📌 추천 질문:</div>
+        <div class="d-flex flex-wrap gap-2">`;
                             data.questions.forEach(q => {
                                 html += `<button type="button" class="btn btn-outline-secondary btn-sm recommended-question-btn"
-                    data-question="${q.text}">
-                    ${q.text}
-                </button>`;
+                data-question="${q.text}">
+                ${q.text}
+            </button>`;
                             });
                             html += ` </div>
-        </div>`;
+    </div>`;
                             bubble.innerHTML = html;
                             chatHistory.appendChild(bubble);
                             chatHistory.scrollTop = chatHistory.scrollHeight;
@@ -457,10 +464,10 @@
                 const form = document.getElementById("uploadForm");
                 const formData = new FormData(form);
 
-                //  문서 요약 로딩 스피너 메시지 표시 
+                // 문서 요약 로딩 스피너 메시지 표시
                 if (pdfProcessingMessage) {
-                    pdfProcessingMessage.style.display = 'flex'; 
-                    chatHistory.scrollTop = chatHistory.scrollHeight; 
+                    pdfProcessingMessage.style.display = 'flex';
+                    chatHistory.scrollTop = chatHistory.scrollHeight;
                     console.log("[PDF 업로드] '문서 요약 중...' 메시지 표시.");
                 }
 
@@ -485,7 +492,7 @@
                             const pdfViewer = document.querySelector(".pdf-viewer");
                             const newIfram = document.createElement("iframe");
                             newIfram.id = "pdf-frame";
-            
+
                             newIfram.src = `/static/${data.filepath}#navpanes=0`;
 
                             pdfViewer.innerHTML = '';
@@ -508,7 +515,7 @@
                             }
 
                             if (pdfProcessingMessage) {
-                                pdfProcessingMessage.style.display = 'none'; 
+                                pdfProcessingMessage.style.display = 'none';
                                 console.log("[PDF 업로드] '문서 요약 중...' 메시지 숨김.");
                             }
 
@@ -516,10 +523,10 @@
 
                             if (data.status === "new") {
                                 if (data.message) {
-                                    appendChatMessage('system', data.message); 
+                                    appendChatMessage('system', data.message);
                                 }
                                 if (data.summary) {
-                                    appendChatMessage('system', data.summary); 
+                                    appendChatMessage('system', data.summary);
                                 }
                             } else {
                                 if (data.message) {
@@ -530,7 +537,7 @@
                             console.error("[Fetch 오류] 서버 응답 상태가 'ok'/ 'processing' / 'new' / 'same'이 아님:", data.message);
                             localStorage.removeItem('pdfRecommendedQuestions');
 
-                            //  오류 발생 시 로딩 스피너 메시지 숨기기 
+                            // 오류 발생 시 로딩 스피너 메시지 숨기기
                             if (pdfProcessingMessage) {
                                 pdfProcessingMessage.style.display = 'none';
                                 console.log("[PDF 업로드] 오류 발생으로 '문서 요약 중...' 메시지 숨김.");
@@ -542,7 +549,7 @@
                         console.error("[Fetch 예외] 요약 중 오류 발생:", error);
                         localStorage.removeItem('pdfRecommendedQuestions');
 
-                        //  예외 발생 시 로딩 스피너 메시지 숨기기
+                        // 예외 발생 시 로딩 스피너 메시지 숨기기
                         if (pdfProcessingMessage) {
                             pdfProcessingMessage.style.display = 'none';
                             console.log("[PDF 업로드] 예외 발생으로 '문서 요약 중...' 메시지 숨김.");
@@ -589,10 +596,10 @@
 
                 if (!aiTypingDiv) {
                     const newBubble = document.createElement('div');
-                    newBubble.className = 'chat-bubble ai d-flex align-items-start'; 
+                    newBubble.className = 'chat-bubble ai d-flex align-items-start';
 
                     const avatarImg = document.createElement('img');
-                    avatarImg.src = data.avatar || "/static/img/ai-avatar.png"; 
+                    avatarImg.src = data.avatar || "/static/img/ai-avatar.png";
                     avatarImg.className = "ai-avatar-img";
                     avatarImg.style.width = "42px";
                     avatarImg.style.height = "42px";
@@ -607,7 +614,7 @@
                     document.querySelector('.chat-history').appendChild(newBubble);
 
                     aiTypingDiv = msgDiv;
-                    aiTypingFullText = ""; 
+                    aiTypingFullText = "";
                 }
 
                 aiTypingFullText += data.chunk;
